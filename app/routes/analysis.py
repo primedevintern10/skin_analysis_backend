@@ -130,7 +130,7 @@ async def analyze(
     dt_end     = datetime.now()
     log.info(f"  OUTPUT  top concern = {concerns[0].name} ({concerns[0].score}/95)")
     log.info(f"  END     {dt_end.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
-    log.info(f"  TOTAL PIPELINE TIME  {total_time*1000:.0f}ms")
+    log.info(f"  TOTAL PIPELINE TIME  {total_time:.2f}s")
     log.info("═" * 65)
 
     return AnalysisResponse(

@@ -11,10 +11,16 @@ pinned: false
 
 FastAPI backend for the SkinScope AI skin analysis pipeline.
 
+## Live API
+
+| | URL |
+|---|---|
+| **Interactive Docs (Swagger UI)** | https://primeintern10-skinscope-backend.hf.space/docs |
+| **Base URL** | https://primeintern10-skinscope-backend.hf.space |
+
 ## Stack
 - **FastAPI** + Uvicorn
 - **MediaPipe** — face detection + landmark masking
-- **YOLOv11** — acne lesion detection
 - **skintelligent-acne** (ViT) — acne severity classification
 - **EfficientNet-B0** — texture feature extraction
 - **OpenCV** — photometric features (redness, oiliness, brightness, etc.)
@@ -32,15 +38,15 @@ Downloaded automatically on first run:
 | Model | Source | Size |
 |---|---|---|
 | `face_landmarker.task` | Google MediaPipe | ~28MB |
-| `yolov11s_acne.pt` | KhaMinh/yolov11s-acne-detection (HF) | ~19MB |
+| `face_detector.tflite` | Google MediaPipe | ~1MB |
 | `skintelligent-acne` | imfarzanansari/skintelligent-acne (HF) | ~330MB |
 | `efficientnet_b0` | timm (auto) | ~21MB |
 
-## Run
+## Run locally
 
 ```bash
 python run.py
-# API available at http://localhost:8000
+# API available at http://localhost:8000/docs
 ```
 
 ## Endpoints
