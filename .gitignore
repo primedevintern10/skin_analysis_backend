@@ -5,12 +5,10 @@ venv/
 env/
 
 # Model files (large binaries — download on first run)
-models/
 *.pt
 *.pth
-*.tflite
-*.task
 *.onnx
+models/.cache/
 
 # Python cache
 __pycache__/
