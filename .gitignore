@@ -4,11 +4,13 @@ venv/
 .venv/
 env/
 
-# Model files (large binaries — download on first run)
+# Model files (large binaries — downloaded at build/runtime)
 *.pt
 *.pth
 *.onnx
 models/.cache/
+models/face_detector.tflite
+models/face_landmarker.task
 
 # Python cache
 __pycache__/
