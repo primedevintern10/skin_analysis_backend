@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
+    libgles2 \
+    libegl1 \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
