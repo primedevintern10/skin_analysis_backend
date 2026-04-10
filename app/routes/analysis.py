@@ -14,6 +14,7 @@ import io
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import cv2
 import numpy as np
@@ -48,7 +49,8 @@ async def analyze(
     file: UploadFile = File(...),
     confidence: float = Form(0.5),
 ):
-    t_start = time.perf_counter()
+    t_start    = time.perf_counter()
+    dt_start   = datetime.now()
 
     # ── 1. Decode image ───────────────────────────────────────────────────────
     contents = await file.read()
@@ -57,7 +59,8 @@ async def analyze(
     h, w = image_rgb.shape[:2]
 
     log.info("═" * 65)
-    log.info("  SKINSCOPE ANALYSIS PIPELINE  STARTED")
+    log.info("  SKINSCOPE ANALYSIS PIPELINE")
+    log.info(f"  START   {dt_start.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
     log.info("═" * 65)
     log.info(f"  INPUT   filename={file.filename}  size={w}×{h}px  "
              f"conf_threshold={confidence}")
@@ -124,7 +127,9 @@ async def analyze(
     annotated_array = np.array(Image.open(io.BytesIO(annotated_bytes)).convert("RGB"))
 
     total_time = time.perf_counter() - t_start
+    dt_end     = datetime.now()
     log.info(f"  OUTPUT  top concern = {concerns[0].name} ({concerns[0].score}/95)")
+    log.info(f"  END     {dt_end.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
     log.info(f"  TOTAL PIPELINE TIME  {total_time*1000:.0f}ms")
     log.info("═" * 65)
 
