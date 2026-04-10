@@ -115,10 +115,10 @@ async def analyze(
 
     # ── 6. Build response ─────────────────────────────────────────────────────
     models_used = ["OpenCV"]
-    if _models_available["yolo"]:
-        models_used.append("YOLOv11-acne")
-    if _models_available["effnet"]:
+    if _models_available.get("effnet"):
         models_used.append("EfficientNet-B0")
+    if _models_available.get("skintel"):
+        models_used.append("skintelligent-acne")
 
     annotated_bytes = base64.b64decode(detection_result.annotated_image)
     annotated_array = np.array(Image.open(io.BytesIO(annotated_bytes)).convert("RGB"))

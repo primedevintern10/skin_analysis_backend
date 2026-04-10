@@ -74,29 +74,23 @@ def _acne(f: dict) -> ConcernScore:
 
     Rosacea guard is now TEXTURE-based, not redness-level-based.
     """
-    yolo_signal    = f["acne_density"]
-    skintel_signal = f.get("skintel_acne", 0.0)   # ViT model (0=clear → 1=severe)
+    skintel_signal = f.get("skintel_acne", 0.0)
     redness        = f["redness"]
     texture        = f["texture_variance"]
 
     # Texture factor: bumpy skin (acne) vs smooth skin (flush/oily pores)
     texture_factor = float(np.clip(texture * 3.5, 0.0, 1.0))
 
-    # Texture-gated redness fallback — only meaningful when BOTH redness
-    # AND texture are high simultaneously (severe widespread acne)
+    # Texture-gated redness fallback for severe/widespread acne where
+    # the ViT model may underestimate due to the masked skin crop
     texture_redness = redness * texture_factor * 0.65
 
-    # Primary: skintelligent ViT model → most reliable single signal
-    # Secondary: YOLO lesion density
-    # Fallback: texture × redness (catches severe cases when models miss)
-    combined = float(np.clip(
-        max(skintel_signal, yolo_signal, texture_redness), 0.0, 1.0
-    ))
+    # Primary: skintelligent ViT  |  Fallback: texture × redness
+    combined = float(np.clip(max(skintel_signal, texture_redness), 0.0, 1.0))
 
     value, bd = _blend(
-        combined   =(combined,               0.80),
-        confidence =(f["acne_confidence"],   0.10),
-        redness    =(redness * texture_factor, 0.10),
+        combined=(combined,                  0.90),
+        redness =(redness * texture_factor,  0.10),
     )
     score = _scale(value)
     return ConcernScore("Acne / Breakouts", score, _severity(score),

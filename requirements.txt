@@ -15,7 +15,6 @@ mediapipe
 torch
 torchvision
 timm
-ultralytics
 transformers
 
 # HTTP client (frontend → backend)
