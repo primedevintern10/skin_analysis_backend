@@ -1,0 +1,38 @@
+# Virtual environment
+myenv/
+venv/
+.venv/
+env/
+
+# Model files (large binaries — download on first run)
+models/
+*.pt
+*.pth
+*.tflite
+*.task
+*.onnx
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Environment variables
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Uvicorn / runtime
+*.pid
