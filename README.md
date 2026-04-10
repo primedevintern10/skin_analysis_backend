@@ -1,3 +1,12 @@
+---
+title: SkinScope Backend
+emoji: 🔬
+colorFrom: purple
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
 # SkinScope — Backend
 
 FastAPI backend for the SkinScope AI skin analysis pipeline.
