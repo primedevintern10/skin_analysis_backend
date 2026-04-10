@@ -9,7 +9,7 @@ from mediapipe.tasks.python.core.base_options import BaseOptions
 
 from app.schemas import DetectionResponse, FaceDetail
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "face_detector.tflite")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "models", "face_detector.tflite")
 
 # Forehead / side padding ratios
 PAD_TOP = 0.30   # 30% of bbox height added above (covers forehead)
