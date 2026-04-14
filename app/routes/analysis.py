@@ -4,9 +4,10 @@ POST /analyze — full skin analysis pipeline.
 Pipeline (all steps after skin crop run in parallel threads):
   1. FaceLandmarker → skin mask crop
   2a. OpenCV feature extraction  ┐ ThreadPoolExecutor
-  2b. YOLOv11 acne detection     │ (3 threads, wall time ≈ slowest)
-  2c. EfficientNet texture feat  ┘
-  3. Scoring engine → 10 concern scores
+  2b. EfficientNet + skintel     │ (4 threads, wall time ≈ slowest)
+  2c. Face detection             │
+  2d. Qwen3-VL-2B-Instruct      ┘ → skin type + vlm concern scores
+  3. Scoring engine → 10 concern scores (existing pipeline)
 """
 
 import base64
@@ -21,10 +22,10 @@ import numpy as np
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from PIL import Image
 
-from app.schemas import AnalysisResponse, ConcernResult, OpenCVFeatures
+from app.schemas import AnalysisResponse, ConcernResult, OpenCVFeatures, PipelineTiming, VLMConcernResult
 from app.services.face_detection import detect_faces
 from app.services.feature_extraction import extract_opencv_features
-from app.services.model_inference import _models_available, run_parallel_inference
+from app.services.model_inference import _models_available, run_parallel_inference, run_vlm_analysis
 from app.services.scoring import calculate_concerns
 from app.services.skin_crop import extract_skin_crop
 
@@ -78,18 +79,20 @@ async def analyze(
     skin_px = int(np.any(skin_crop > 0, axis=2).sum())
     log.info(f"  SKIN CROP  {skin_px:,} skin pixels extracted  ({skin_time*1000:.0f}ms)")
 
-    # ── 3. Parallel feature extraction ───────────────────────────────────────
-    log.info("  PARALLEL THREADS  starting OpenCV + YOLOv11 + EfficientNet …")
+    # ── 3. Parallel feature extraction (4 threads) ───────────────────────────
+    log.info("  PARALLEL THREADS  starting OpenCV + EfficientNet + Detection + Qwen3-VL …")
     t0 = time.perf_counter()
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         f_opencv = pool.submit(extract_opencv_features, skin_crop)
         f_ml     = pool.submit(run_parallel_inference,  image_rgb, skin_crop)
         f_detect = pool.submit(detect_faces,            image_rgb, confidence)
+        f_vlm    = pool.submit(run_vlm_analysis,        skin_crop)
 
         opencv_features  = f_opencv.result()
         ml_features      = f_ml.result()
         detection_result = f_detect.result()
+        vlm_result       = f_vlm.result()
 
     parallel_time = time.perf_counter() - t0
 
@@ -108,6 +111,12 @@ async def analyze(
         log.info(f"  │    {k:<28} = {v:.4f}  {bar}")
     log.info(f"  │  Face Detection")
     log.info(f"  │    faces_detected           = {detection_result.face_count}")
+    log.info(f"  │  Qwen3-VL-2B")
+    log.info(f"  │    skin_type                = {vlm_result['skin_type']}")
+    log.info(f"  │    vlm_inference_time        = {vlm_result['vlm_inference_ms']:.0f}ms")
+    for c in vlm_result["vlm_concerns"]:
+        bar = "▓" * int((c["score"] - 10) / 85 * 20)
+        log.info(f"  │    {c['name']:<28} = {c['score']:.1f}/95  [{c['severity']:<8}]  {bar}")
     log.info("  └──────────────────────────────────────────────────────")
 
     # ── 5. Score 10 concerns ──────────────────────────────────────────────────
@@ -122,15 +131,25 @@ async def analyze(
         models_used.append("EfficientNet-B0")
     if _models_available.get("skintel"):
         models_used.append("skintelligent-acne")
+    if _models_available.get("qwen_vlm"):
+        models_used.append("Qwen3-VL-2B-Instruct")
 
     annotated_bytes = base64.b64decode(detection_result.annotated_image)
     annotated_array = np.array(Image.open(io.BytesIO(annotated_bytes)).convert("RGB"))
 
-    total_time = time.perf_counter() - t_start
+    total_ms   = (time.perf_counter() - t_start) * 1000
     dt_end     = datetime.now()
+
     log.info(f"  OUTPUT  top concern = {concerns[0].name} ({concerns[0].score}/95)")
+    log.info(f"  OUTPUT  skin type   = {vlm_result['skin_type']}")
+    log.info(f"  ┌─ TIMING BREAKDOWN ───────────────────────────────────")
+    log.info(f"  │  Skin Crop          : {skin_time*1000:>7.1f} ms")
+    log.info(f"  │  Parallel Threads   : {parallel_time*1000:>7.1f} ms  (wall time, 4 threads)")
+    log.info(f"  │    └─ Qwen3-VL only : {vlm_result['vlm_inference_ms']:>7.1f} ms")
+    log.info(f"  │  Scoring            : {score_time*1000:>7.1f} ms")
+    log.info(f"  │  TOTAL              : {total_ms:>7.1f} ms")
+    log.info(f"  └──────────────────────────────────────────────────────")
     log.info(f"  END     {dt_end.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
-    log.info(f"  TOTAL PIPELINE TIME  {total_time:.2f}s")
     log.info("═" * 65)
 
     return AnalysisResponse(
@@ -150,4 +169,20 @@ async def analyze(
         skin_crop_image=_encode(skin_crop),
         annotated_image=_encode(annotated_array),
         models_used=models_used,
+        skin_type=vlm_result["skin_type"],
+        vlm_concerns=[
+            VLMConcernResult(
+                name=c["name"],
+                score=c["score"],
+                severity=c["severity"],
+            )
+            for c in vlm_result["vlm_concerns"]
+        ],
+        timing=PipelineTiming(
+            skin_crop_ms=round(skin_time * 1000, 1),
+            parallel_pipeline_ms=round(parallel_time * 1000, 1),
+            vlm_inference_ms=round(vlm_result["vlm_inference_ms"], 1),
+            scoring_ms=round(score_time * 1000, 1),
+            total_ms=round(total_ms, 1),
+        ),
     )
