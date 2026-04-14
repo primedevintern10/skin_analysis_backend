@@ -16,6 +16,8 @@ torch
 torchvision
 timm
 transformers
+accelerate
+qwen-vl-utils
 
 # HTTP client (frontend → backend)
 requests
