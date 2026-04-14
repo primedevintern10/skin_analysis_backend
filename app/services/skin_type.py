@@ -57,7 +57,7 @@ def classify_skin_type(features: dict[str, float]) -> str:
     oily_by_shine    = (brightness >= _OILY_BRIGHT_SAT
                         and saturation_inv <= _OILY_SAT_INV_MAX
                         and flakiness < _OILY_FLAKY_MAX)
-    if (oily_by_specular or oily_by_shine) and redness < _REDNESS_SENSITIVE:
+    if oily_by_specular or oily_by_shine:
         skin_type = "oily"
 
     # ── Sensitive: requires BOTH high redness AND inflamed clusters ───────────

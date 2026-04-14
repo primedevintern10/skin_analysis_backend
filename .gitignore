@@ -27,7 +27,6 @@ __pycache__/
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 
 # Logs
@@ -36,3 +35,6 @@ logs/
 
 # Uvicorn / runtime
 *.pid
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
