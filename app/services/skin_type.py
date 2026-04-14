@@ -17,12 +17,13 @@ import logging
 log = logging.getLogger("skinscope.skintype")
 
 # Thresholds
-_OILY_THRESH       = 0.30   # oiliness >= this → leaning oily
-_DRY_OILY_MAX      = 0.15   # oiliness <= this for dry classification
-_FLAKY_THRESH      = 0.40   # flakiness >= this → dry indicator
-_REDNESS_SENSITIVE = 0.45   # redness >= this → sensitive
-_COMBO_OILY        = 0.20   # moderate oiliness for combination
-_COLOR_VAR_COMBO   = 0.45   # color variance for combination (uneven zones)
+_OILY_THRESH          = 0.20   # oiliness >= this → leaning oily
+_DRY_OILY_MAX         = 0.15   # oiliness <= this for dry classification
+_FLAKY_THRESH         = 0.40   # flakiness >= this → dry indicator
+_REDNESS_SENSITIVE    = 0.45   # redness >= this (used with clusters)
+_CLUSTERS_SENSITIVE   = 0.60   # local_redness_clusters >= this → true inflammation
+_COMBO_OILY           = 0.18   # moderate oiliness for combination
+_COLOR_VAR_COMBO      = 0.45   # color variance for combination (uneven zones)
 
 
 def classify_skin_type(features: dict[str, float]) -> str:
@@ -32,24 +33,28 @@ def classify_skin_type(features: dict[str, float]) -> str:
     Args:
         features: dict containing at minimum:
             oiliness, redness, flakiness, brightness,
-            texture_variance, color_variance, saturation_inv
+            texture_variance, color_variance, saturation_inv,
+            local_redness_clusters
 
     Returns:
         One of: "oily" | "dry" | "sensitive" | "combination" | "normal"
     """
-    oiliness      = features.get("oiliness",        0.0)
-    redness       = features.get("redness",          0.0)
-    flakiness     = features.get("flakiness",        0.0)
-    color_var     = features.get("color_variance",   0.0)
-    saturation_inv = features.get("saturation_inv",  0.0)
+    oiliness         = features.get("oiliness",               0.0)
+    redness          = features.get("redness",                 0.0)
+    flakiness        = features.get("flakiness",               0.0)
+    color_var        = features.get("color_variance",          0.0)
+    saturation_inv   = features.get("saturation_inv",          0.0)
+    clusters         = features.get("local_redness_clusters",  0.0)
 
-    # ── Sensitive: high redness is the dominant signal ────────────────────────
-    if redness >= _REDNESS_SENSITIVE:
-        skin_type = "sensitive"
-
-    # ── Oily: high oiliness, redness not dominant ────────────────────────────
-    elif oiliness >= _OILY_THRESH and redness < _REDNESS_SENSITIVE:
+    # ── Oily: checked first — high oiliness wins regardless of redness ────────
+    # (warm skin tones can have high redness but are still oily)
+    if oiliness >= _OILY_THRESH and redness < _REDNESS_SENSITIVE:
         skin_type = "oily"
+
+    # ── Sensitive: requires BOTH high redness AND inflamed clusters ───────────
+    # (rules out warm skin tones which have redness but no actual clusters)
+    elif redness >= _REDNESS_SENSITIVE and clusters >= _CLUSTERS_SENSITIVE:
+        skin_type = "sensitive"
 
     # ── Dry: low oiliness + high flakiness or high saturation drop ───────────
     elif oiliness <= _DRY_OILY_MAX and (flakiness >= _FLAKY_THRESH or saturation_inv >= 0.35):
