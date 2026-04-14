@@ -17,8 +17,12 @@ import logging
 log = logging.getLogger("skinscope.skintype")
 
 # Thresholds
-_OILY_THRESH          = 0.20   # oiliness >= this → leaning oily
+_OILY_SPECULAR        = 0.20   # oiliness (specular) >= this → oily
+_OILY_BRIGHT_SAT      = 0.62   # brightness >= this → possible shine
+_OILY_SAT_INV_MAX     = 0.25   # saturation_inv <= this → high saturation (oily)
+_OILY_FLAKY_MAX       = 0.65   # flakiness must be below this for brightness-based oily
 _DRY_OILY_MAX         = 0.15   # oiliness <= this for dry classification
+_DRY_BRIGHT_MAX       = 0.60   # brightness must be below this to classify dry
 _FLAKY_THRESH         = 0.40   # flakiness >= this → dry indicator
 _REDNESS_SENSITIVE    = 0.45   # redness >= this (used with clusters)
 _CLUSTERS_SENSITIVE   = 0.60   # local_redness_clusters >= this → true inflammation
@@ -42,22 +46,30 @@ def classify_skin_type(features: dict[str, float]) -> str:
     oiliness         = features.get("oiliness",               0.0)
     redness          = features.get("redness",                 0.0)
     flakiness        = features.get("flakiness",               0.0)
+    brightness       = features.get("brightness",              0.0)
     color_var        = features.get("color_variance",          0.0)
     saturation_inv   = features.get("saturation_inv",          0.0)
     clusters         = features.get("local_redness_clusters",  0.0)
 
-    # ── Oily: checked first — high oiliness wins regardless of redness ────────
-    # (warm skin tones can have high redness but are still oily)
-    if oiliness >= _OILY_THRESH and redness < _REDNESS_SENSITIVE:
+    # ── Oily: high specular highlights OR bright + high saturation + not flaky ─
+    # Second condition catches diffuse shine that the specular detector misses
+    oily_by_specular = oiliness >= _OILY_SPECULAR
+    oily_by_shine    = (brightness >= _OILY_BRIGHT_SAT
+                        and saturation_inv <= _OILY_SAT_INV_MAX
+                        and flakiness < _OILY_FLAKY_MAX)
+    if (oily_by_specular or oily_by_shine) and redness < _REDNESS_SENSITIVE:
         skin_type = "oily"
 
     # ── Sensitive: requires BOTH high redness AND inflamed clusters ───────────
-    # (rules out warm skin tones which have redness but no actual clusters)
+    # Rules out warm skin tones which have redness but no actual clusters
     elif redness >= _REDNESS_SENSITIVE and clusters >= _CLUSTERS_SENSITIVE:
         skin_type = "sensitive"
 
-    # ── Dry: low oiliness + high flakiness or high saturation drop ───────────
-    elif oiliness <= _DRY_OILY_MAX and (flakiness >= _FLAKY_THRESH or saturation_inv >= 0.35):
+    # ── Dry: low oiliness + high flakiness/saturation drop + not bright ───────
+    # Brightness guard prevents bright oily faces from being misclassified
+    elif (oiliness <= _DRY_OILY_MAX
+          and brightness < _DRY_BRIGHT_MAX
+          and (flakiness >= _FLAKY_THRESH or saturation_inv >= 0.35)):
         skin_type = "dry"
 
     # ── Combination: moderate oiliness + uneven color zones ──────────────────
