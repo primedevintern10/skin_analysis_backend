@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 
 # ---------------------------------------------------------------------------
@@ -30,18 +30,11 @@ class ConcernResult(BaseModel):
     description: str
 
 
-class VLMConcernResult(BaseModel):
-    name: str
-    score: float                  # 10–95
-    severity: str                 # Low | Moderate | High
-
-
 class PipelineTiming(BaseModel):
-    skin_crop_ms: float
-    parallel_pipeline_ms: float   # OpenCV + ML + face detection threads
-    vlm_inference_ms: float       # Qwen3-VL thread
-    scoring_ms: float
-    total_ms: float
+    skin_crop_s: float
+    parallel_pipeline_s: float
+    scoring_s: float
+    total_s: float
 
 
 class OpenCVFeatures(BaseModel):
@@ -64,7 +57,5 @@ class AnalysisResponse(BaseModel):
     skin_crop_image: str          # base64-encoded PNG of masked skin region
     annotated_image: str          # base64-encoded PNG with face box
     models_used: List[str]        # which ML models contributed
-    # VLM additions
-    skin_type: str                # normal | oily | dry | combination | sensitive | unknown
-    vlm_concerns: List[VLMConcernResult]   # same 10 concerns scored by Qwen3-VL
+    skin_type: str                # normal | oily | dry | combination | sensitive
     timing: PipelineTiming
